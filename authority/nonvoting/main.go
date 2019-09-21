@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	cliConf "github.com/katzenpost/client/config"
 	"os"
 	"os/signal"
 	"syscall"
@@ -29,6 +30,7 @@ import (
 
 func main() {
 	cfgFile := flag.String("f", "katzenpost-authority.toml", "Path to the authority config file.")
+	cliCfgFile := flag.String("c", "alice.toml", "Path to the client config file")
 	genOnly := flag.Bool("g", false, "Generate the keys and exit immediately.")
 	flag.Parse()
 
@@ -37,7 +39,14 @@ func main() {
 
 	cfg, err := config.LoadFile(*cfgFile, *genOnly)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to load config file '%v': %v\n", *cfgFile, err)
+		_, _ = fmt.Fprintf(os.Stderr, "Failed to load config file '%v': %v\n", *cfgFile, err)
+		os.Exit(-1)
+	}
+
+	// Load Client Config file - for experiment parameters
+	cliCfg, err := cliConf.LoadFile(*cliCfgFile)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Failed to load config file '%v': %v\n", *cfgFile, err)
 		os.Exit(-1)
 	}
 
@@ -49,12 +58,12 @@ func main() {
 	signal.Notify(rotateCh, syscall.SIGHUP)
 
 	// Start up the authority.
-	svr, err := server.New(cfg)
+	svr, err := server.New(cfg, cliCfg)
 	if err != nil {
 		if err == server.ErrGenerateOnly {
 			os.Exit(0)
 		}
-		fmt.Fprintf(os.Stderr, "Failed to spawn authority instance: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Failed to spawn authority instance: %v\n", err)
 		os.Exit(-1)
 	}
 	defer svr.Shutdown()
